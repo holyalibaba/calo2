@@ -172,15 +172,14 @@ function render() {
 
 function renderAdd() {
   const today=toDateKey(Date.now()), todayE=entries.filter(e=>toDateKey(e.id)===today), t=sumList(todayE);
-  const calPct=pct(t.cal,GOALS.calories), rem=GOALS.calories-t.cal;
-  let html=`
+  const calPct=pct(t.cal,GOALS.calories), rem=GOALS.calories-t.cal;  let html=`
   <div class="card" style="text-align:center">
     <div style="font-size:11px;color:#64748b;margin-bottom:4px">HÔM NAY</div>
-    <div style="font-size:34px;font-weight:700;color:${calPct>=100?"#ef4444":"#38bdf8"}">${t.cal.toFixed(0)} <span style="font-size:15px;color:#94a3b8">/ 2.400 kcal</span></div>
+    <div style="font-size:34px;font-weight:700;color:${calPct>=100?"#ef4444":"#38bdf8"}">${t.cal.toFixed(0)} <span style="font-size:15px;color:#94a3b8">/ ${GOALS.calories.toLocaleString()} kcal</span></div>
     <div class="bar-wrap"><div class="bar" style="width:${calPct}%;background:${barColor(calPct)}"></div></div>
     <div style="font-size:13px;color:${rem>=0?"#86efac":"#fca5a5"}">${rem>=0?`Còn lại: ${rem.toFixed(0)} kcal`:`Vượt quá: ${Math.abs(rem).toFixed(0)} kcal`}</div>
     <div class="grid3">
-      ${[{l:"Protein",v:t.pro,g:150,u:"g",c:"#818cf8"},{l:"Chất béo",v:t.fat,g:80,u:"g",c:"#fb923c"},{l:"Carbs",v:t.carb,g:300,u:"g",c:"#facc15"}].map(m=>`
+      ${[{l:"Protein",v:t.pro,g:GOALS.protein,u:"g",c:"#818cf8"},{l:"Chất béo",v:t.fat,g:GOALS.fat,u:"g",c:"#fb923c"},{l:"Carbs",v:t.carb,g:GOALS.carbs,u:"g",c:"#facc15"}].map(m=>`
       <div class="macro">
         <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">${m.l}</div>
         <div style="font-size:15px;font-weight:700;color:${m.c}">${m.v.toFixed(1)}${m.u}</div>
