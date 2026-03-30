@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="vi">
 <head>
 <meta charset="UTF-8"/>
@@ -55,6 +54,7 @@ input.qty{width:72px;border:2px solid #38bdf8;}
 
 <script>
 const STORAGE_KEY = "nutrition-v1";
+const USDA_KEY = "E1GQLQCuXnG4bcxlccUF39z3dtEjiP2eSrhnp8hw";
 const GOALS = {calories:2400,protein:150,fat:80,carbs:300};
 
 const DB = {
@@ -190,7 +190,8 @@ function renderAdd() {
       <div><div class="label">① Số lượng</div><input class="qty" id="qty" placeholder="VD: 2" onkeydown="if(event.key==='Enter')manualAdd()"/></div>
       <div style="flex:1"><div class="label">② Tên món</div><input id="foodInput" placeholder="Tên món ăn..." onkeydown="if(event.key==='Enter')manualAdd()"/></div>
     </div>
-    <button class="btn" style="background:#3b82f6;color:#fff" onclick="manualAdd()">➕ Thêm món</button>
+    <button id="addBtn" class="btn" style="background:#3b82f6;color:#fff" onclick="manualAdd()">➕ Thêm món</button>
+    <div style="font-size:11px;color:#475569;margin-top:4px">⚡ Có sẵn → tức thì &nbsp;|&nbsp; 🔍 Món lạ → tìm USDA tự động</div>
   </div>
 
   <div class="card">
@@ -298,14 +299,51 @@ function renderData() {
   </div>`;
 }
 
-function manualAdd() {
-  const qty=document.getElementById("qty").value.trim(), name=document.getElementById("foodInput").value.trim().toLowerCase();
+async function searchUSDA(query) {
+  try {
+    const res = await fetch(`https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(query)}&pageSize=1&api_key=${USDA_KEY}`);
+    const data = await res.json();
+    if (!data.foods || !data.foods.length) return null;
+    const food = data.foods[0];
+    const get = (n) => { const nutr = food.foodNutrients?.find(x => x.nutrientName?.toLowerCase().includes(n)); return nutr ? +nutr.value.toFixed(1) : 0; };
+    return {
+      name: food.description,
+      cal: get("energy"), pro: get("protein"), fat: get("total lipid"),
+      carb: get("carbohydrate"), fib: get("fiber"), sod: get("sodium"),
+      amount: "100g", per: 100,
+      units: ["100g","150g","200g","50g"], def: "100g"
+    };
+  } catch { return null; }
+}
+
+async function manualAdd() {
+  const qtyEl=document.getElementById("qty"), nameEl=document.getElementById("foodInput");
+  const qty=qtyEl.value.trim(), name=nameEl.value.trim().toLowerCase();
   if(!name) return;
+
+  // Try local DB first
   const found=Object.keys(DB).find(k=>name.includes(k));
-  if(!found){ alert("Không tìm thấy '"+name+"'. Hãy dùng Chọn nhanh hoặc thử tên khác."); return; }
-  const food=DB[found], n=parseFloat(qty)||1, m=food.per===1?n:1;
-  entries.push({id:Date.now(),name:cap(found),amount:qty?qty+" x "+found:food.amt,cal:+(food.cal*m).toFixed(1),pro:+(food.pro*m).toFixed(1),fat:+(food.fat*m).toFixed(1),carb:+(food.carb*m).toFixed(1),fib:+(food.fib*m).toFixed(1),sod:+(food.sod*m).toFixed(0)});
-  save(); document.getElementById("qty").value=""; document.getElementById("foodInput").value=""; render();
+  if(found){
+    const food=DB[found], n=parseFloat(qty)||1, m=food.per===1?n:1;
+    entries.push({id:Date.now(),name:cap(found),amount:qty?qty+" x "+found:food.amt,cal:+(food.cal*m).toFixed(1),pro:+(food.pro*m).toFixed(1),fat:+(food.fat*m).toFixed(1),carb:+(food.carb*m).toFixed(1),fib:+(food.fib*m).toFixed(1),sod:+(food.sod*m).toFixed(0)});
+    save(); qtyEl.value=""; nameEl.value=""; render(); return;
+  }
+
+  // Search USDA
+  const btn=document.getElementById("addBtn");
+  btn.textContent="🔍 Đang tìm..."; btn.disabled=true;
+  const result = await searchUSDA(name);
+  btn.textContent="➕ Thêm món"; btn.disabled=false;
+
+  if(!result){ alert("Không tìm thấy '"+name+"'. Hãy thử tên tiếng Anh hoặc dùng Chọn nhanh."); return; }
+
+  const n=parseFloat(qty)||1;
+  const m = result.per===100 ? n/100 : n;
+  entries.push({id:Date.now(),name:cap(name),amount:qty?`${qty}g`:result.amount,
+    cal:+(result.cal*m*100).toFixed(1),pro:+(result.pro*m*100).toFixed(1),
+    fat:+(result.fat*m*100).toFixed(1),carb:+(result.carb*m*100).toFixed(1),
+    fib:+(result.fib*m*100).toFixed(1),sod:+(result.sod*m*100).toFixed(0)});
+  save(); qtyEl.value=""; nameEl.value=""; render();
 }
 
 function selectFood(key) { selectedFood=selectedFood===key?null:key; selectedUnit=selectedFood?DB[key].def:null; render(); }
@@ -325,6 +363,5 @@ function clearAll() { if(confirm("Xóa toàn bộ? Không thể hoàn tác!")) {
 
 render();
 </script>
-
 </body>
 </html>
